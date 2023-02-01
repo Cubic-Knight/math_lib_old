@@ -17,7 +17,7 @@ const OBJ_SINGLETON_COLOR: ColorInfo = ColorInfo::fg_color(Color::Yellow);
 const OBJ_SYNTAX_COLOR: ColorInfo = ColorInfo::fg_color(Color::Magenta);
 const NEW_SYNTAX_COLOR: ColorInfo = ColorInfo::fg_color(Color::White);
 
-pub fn parse_new_syntax(line: &str, syntax_type: SyntaxType) -> (FileLine, Option<Syntax>) {
+pub fn parse_new_syntax(line: Vec<char>, syntax_type: SyntaxType) -> (FileLine, Option<Syntax>) {
     if line.len() == 0 {
         return (
             FileLine { context: LineContext::SyntaxDefinition, chars: vec![], colors: vec![] },
@@ -29,7 +29,7 @@ pub fn parse_new_syntax(line: &str, syntax_type: SyntaxType) -> (FileLine, Optio
     let mut formula = Vec::new();
     let mut wff_mapping = HashMap::new();
     let mut obj_mapping = HashMap::new();
-    for c in line.chars() {
+    for c in line {
         if c == ' ' {
             chars.push(c);
             colors.push(ColorInfo::NO_COLOR);
@@ -82,7 +82,7 @@ enum PartiallyCompiled {
     CompiledObject { chars: Vec<char>, colors: Vec<ColorInfo> }
 }
 
-fn monochromatic_formula(line: &str, color: Color, context: LineContext) -> FileLine {
+fn monochromatic_formula(line: String, color: Color, context: LineContext) -> FileLine {
     let color = ColorInfo::fg_color(color);
     FileLine {
         context,
@@ -92,8 +92,9 @@ fn monochromatic_formula(line: &str, color: Color, context: LineContext) -> File
 }
 
 pub fn parse_formula(
-    line: &str, lib_data: &LibraryData, additional_syntax: Option<Syntax>, context: LineContext
+    line: Vec<char>, lib_data: &LibraryData, additional_syntax: Option<Syntax>, context: LineContext
 ) -> FileLine {
+    let line = line.into_iter().collect::<String>();
     let leading_spaces_count = line.len() - line.trim_start().len();
     let trailing_spaces_count = line.len() - line.trim_end().len();
     let try_parsing = line.trim().chars()

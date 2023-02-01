@@ -1,7 +1,8 @@
 mod display;
 pub use display::{
     display_menu,
-    display_file
+    display_file,
+    display_command_bar
 };
 
 mod menu;

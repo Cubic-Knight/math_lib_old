@@ -11,11 +11,12 @@ use crate::library_data::{
     Syntax, SyntaxType
 };
 
-pub fn parse_syntax_section(section: Vec<&str>, syntax_type: SyntaxType) -> (Vec<FileLine>, Option<Syntax>) {
+pub fn parse_syntax_section(section: Vec<Vec<char>>, syntax_type: SyntaxType) -> (Vec<FileLine>, Option<Syntax>) {
     let mut lines = section.into_iter();
 
     let section_name_line = match lines.next() {
-        Some(section_name) => {
+        Some(first_line) => {
+            let section_name = first_line.into_iter().collect::<String>();
             let name_color = match section_name == "# Syntax" {
                 true => ColorInfo::fg_color(Color::White).bold_underlined(),
                 false => ColorInfo::fg_color(Color::Red)
@@ -33,20 +34,20 @@ pub fn parse_syntax_section(section: Vec<&str>, syntax_type: SyntaxType) -> (Vec
     
     let mut result_lines = vec![ section_name_line, syntax_def_line ];
     for line in lines {
-        let chars = line.chars().collect::<Vec<_>>();
-        let colors = chars.iter().map(|_| ColorInfo::fg_color(Color::Red)).collect();
-        result_lines.push( FileLine { context: LineContext::UnexpectedLine, chars, colors } );
+        let colors = line.iter().map(|_| ColorInfo::fg_color(Color::Red)).collect();
+        result_lines.push( FileLine { context: LineContext::UnexpectedLine, chars: line, colors } );
     };
     (result_lines, syntax)
 }
 
 pub fn parse_definition_section(
-    section: Vec<&str>, lib_data: &LibraryData, new_syntax: Option<Syntax>
+    section: Vec<Vec<char>>, lib_data: &LibraryData, new_syntax: Option<Syntax>
 ) -> Vec<FileLine> {
     let mut lines = section.into_iter();
 
     let section_name_line = match lines.next() {
-        Some(section_name) => {
+        Some(first_line) => {
+            let section_name = first_line.into_iter().collect::<String>();
             let name_color = match section_name == "# Definition" {
                 true => ColorInfo::fg_color(Color::White).bold_underlined(),
                 false => ColorInfo::fg_color(Color::Red)
@@ -67,20 +68,20 @@ pub fn parse_definition_section(
     
     let mut result_lines = vec![ section_name_line, definition_line ];
     for line in lines {
-        let chars = line.chars().collect::<Vec<_>>();
-        let colors = chars.iter().map(|_| ColorInfo::fg_color(Color::Red)).collect();
-        result_lines.push( FileLine { context: LineContext::UnexpectedLine, chars, colors } );
+        let colors = line.iter().map(|_| ColorInfo::fg_color(Color::Red)).collect();
+        result_lines.push( FileLine { context: LineContext::UnexpectedLine, chars: line, colors } );
     };
     result_lines
 }
 
 pub fn parse_hypotesis_section(
-    section: Vec<&str>, lib_data: &LibraryData
+    section: Vec<Vec<char>>, lib_data: &LibraryData
 ) -> (Vec<FileLine>, Vec<String>) {
     let mut lines = section.into_iter();
 
     let section_name_line = match lines.next() {
-        Some(section_name) => {
+        Some(first_line) => {
+            let section_name = first_line.into_iter().collect::<String>();
             let is_valid = section_name == "# Hypothesis" || section_name == "# Hypotheses";
             let name_color = match is_valid {
                 true => ColorInfo::fg_color(Color::White).bold_underlined(),
@@ -96,31 +97,33 @@ pub fn parse_hypotesis_section(
     let mut result_lines = vec![ section_name_line ];
     let mut hypot_names = Vec::new();
     for line in lines {
-        let hypothesis = match line.split_once(':') {
-            Some((name, hypot)) => {
-                hypot_names.push(name.to_owned());
+        let mut split = line.splitn(2, |c| *c == ':');
+        let hypothesis = match (split.next(), split.next()) {
+            (Some(name), Some(hypot)) => {
+                hypot_names.push( name.iter().collect::<String>() );
                 let context = LineContext::Hypothesis;
                 let FileLine {
                     context: _, chars: hyp_chars, colors: hyp_colors
-                } = parse_formula(hypot, lib_data, None, context);
-                let chars = name.chars()
+                } = parse_formula(hypot.to_vec(), lib_data, None, context);
+                let chars = name.to_vec().into_iter()
                     .chain(Some(':'))
                     .chain(hyp_chars)
                     .collect();
-                let colors = name.chars()
+                let colors = name.iter()
                     .map(|_| ColorInfo::NO_COLOR)
                     .chain(Some(ColorInfo::NO_COLOR))
                     .chain(hyp_colors)
                     .collect();
                 FileLine { context, chars, colors }
             },
-            None => {
-                let chars = line.chars().collect::<Vec<_>>();
+            (Some(line), None) => {
+                let chars = line.to_vec();
                 let colors = chars.iter().map(
                     |_| ColorInfo::fg_color(Color::Red)
                 ).collect();
                 FileLine { context: LineContext::UnexpectedLine, chars, colors }
-            }
+            },
+            _ => unreachable!()
         };
         result_lines.push( hypothesis );
     };
@@ -128,13 +131,14 @@ pub fn parse_hypotesis_section(
 }
 
 pub fn parse_assertion_section(
-    section: Vec<&str>, lib_data: &LibraryData, context: LineContext
+    section: Vec<Vec<char>>, lib_data: &LibraryData, context: LineContext
 ) -> Vec<FileLine> {
     let mut lines = section.into_iter();
 
     let section_name_line = match lines.next() {
-        Some(section_name) => {
-            let is_valid = match (context, section_name) {
+        Some(first_line) => {
+            let section_name = first_line.into_iter().collect::<String>();
+            let is_valid = match (context, section_name.as_str()) {
                 (LineContext::AxiomHypothesis, "# Hypothesis") => true,
                 (LineContext::AxiomHypothesis, "# Hypotheses") => true,
                 (_, "# Assertion") => true,
@@ -221,13 +225,14 @@ fn theo_is_valid(
 }
 
 pub fn parse_proof_section(
-    section: Vec<&str>, lib_data: &LibraryData,
+    section: Vec<Vec<char>>, lib_data: &LibraryData,
     references: &HashMap<String, Reference>, hypot_names: Vec<String>
 ) -> Vec<FileLine> {
     let mut lines = section.into_iter();
 
     let section_name_line = match lines.next() {
-        Some(section_name) => {
+        Some(first_line) => {
+            let section_name = first_line.into_iter().collect::<String>();
             let name_color = match section_name == "# Proof" {
                 true => ColorInfo::fg_color(Color::White).bold_underlined(),
                 false => ColorInfo::fg_color(Color::Red)
@@ -244,9 +249,10 @@ pub fn parse_proof_section(
     let mut max_theo_ref_len = 2;
     let mut preparsed_lines = Vec::new();
     for (i, line) in lines.enumerate() {
+        let line = line.into_iter().collect::<String>();
         let mut parts = line.splitn(4, ';')
             .map(|s| s.trim());
-        let line_no = parts.next().unwrap_or("");
+        let line_no = parts.next().unwrap_or("").to_owned();
         let line_no_color = match line_no.parse::<usize>() == Ok(i+1) {
             true => ColorInfo::NO_COLOR,
             false => ColorInfo::fg_color(Color::Red)
@@ -255,7 +261,7 @@ pub fn parse_proof_section(
         if line_no_len > max_line_no_len { max_line_no_len = line_no_len; };
 
         let used_hypots = parts.next().unwrap_or("");
-        let used_hypots_color = parse_used_hypots(used_hypots, line_no);
+        let used_hypots_color = parse_used_hypots(used_hypots, &line_no);
         let used_hypots_len = used_hypots.chars().count();
         if used_hypots_len > max_used_hypots_len { max_used_hypots_len = used_hypots_len; };
 
@@ -269,8 +275,9 @@ pub fn parse_proof_section(
         if theo_ref_len > max_theo_ref_len { max_theo_ref_len = theo_ref_len; };
 
         let context = LineContext::ProofLine;
+        let line = parts.next().unwrap_or("").chars().collect::<Vec<_>>();
         let resulting_formula = parse_formula(
-            parts.next().unwrap_or(""), lib_data, None, context
+            line, lib_data, None, context
         );
 
         preparsed_lines.push((

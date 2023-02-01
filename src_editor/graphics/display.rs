@@ -95,13 +95,19 @@ pub fn display_file(file: &FileGraphics, dimensions: &(usize, usize), indent: us
                 current_string.push_str(&col.to_escape_string());
                 // "\x1b[{col}G" is to force cursor to stay in the correct column
                 // There should not be a need for that escape sequence
-                //  but there is a bug with chars that are above U+FFFF
+                //  but there is a bug in the terminal's code with chars
+                //  that are above U+FFFF that causes the terminal to think
+                //  they are two characters instead of one
                 current_string.push_str( &format!("\x1b[{}G", char_count+1) );
             };
-            if (lno+1, cno+1) == *cursor { current_string.push_str("\x1b[7m"); };
+            if (lno+1, cno+1) == *cursor {
+                current_string.push_str("\x1b[7m");
+                current_string.push_str( &format!("\x1b[{}G", char_count+1) );
+            };
             current_string.push(*ch);
             if (lno+1, cno+1) == *cursor {
                 current_string.push_str("\x1b[m");
+                current_string.push_str( &format!("\x1b[{}G", char_count+2) );
                 current_color = ColorInfo::NO_COLOR;
             };
             char_count += 1;
@@ -114,5 +120,28 @@ pub fn display_file(file: &FileGraphics, dimensions: &(usize, usize), indent: us
     print!("\x1b[2J\x1b[H"); // Clear display
     print!("{}", to_print);
     print!("\x1b[{};{}H", cursor.0, cursor.1);
+    stdout().flush().unwrap();
+}
+
+pub fn display_command_bar(command: &str, dimensions: &(usize, usize)) {
+    let bar_width = (dimensions.0 * 3 / 4).clamp(15, 35);
+    let bar_begin = dimensions.0.saturating_sub(bar_width+1);
+    let bar_capacity = dimensions.0.saturating_sub(bar_begin+1);
+    
+    let intro = match bar_capacity {
+        0..=4 => "",
+        5..=9 => ": ",
+        10..=14 => "CC: ",
+        15..=24 => "Code: ",
+        _ => "Char Code: "
+    };
+    let to_print = intro.chars()
+        .chain( command.chars() )
+        .chain( std::iter::repeat(' ') )
+        .take(bar_capacity)
+        .collect::<String>();
+
+    print!("\x1b[1;{}H", bar_begin+1);  // Set cursor pos
+    print!("\x1b[0;30;47m{}\x1b[m", to_print);
     stdout().flush().unwrap();
 }

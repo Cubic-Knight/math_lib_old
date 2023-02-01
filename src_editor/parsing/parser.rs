@@ -1,8 +1,4 @@
-use std::{
-    fs, io,
-    collections::HashMap
-};
-
+use std::collections::HashMap;
 use super::{
     FileLine, LineContext, FileType,
     ColorInfo, Color,
@@ -16,25 +12,19 @@ use crate::library_data::{
     LibraryData, Reference, SyntaxType
 };
 
-pub fn parse_title(lines: &mut std::str::Lines) -> (FileLine, FileType) {
-    let first_line = match lines.next() {
-        None => return (
-            FileLine { context: LineContext::Raw, chars: vec![], colors: vec![] },
-            FileType::Unknown
-        ),
-        Some(line) => line
-    };
-    if !first_line.starts_with("##") {
-        let chars = first_line.chars().collect::<Vec<_>>();
+pub fn parse_title(line: Vec<char>) -> (FileLine, FileType) {
+    let line = line.into_iter().collect::<String>();
+    if !line.starts_with("##") {
+        let chars = line.chars().collect::<Vec<_>>();
         let colors = chars.iter().map(|_| ColorInfo::NO_COLOR).collect();
         return (
             FileLine { context: LineContext::Raw, chars, colors },
             FileType::Unknown
         );
     }
-    let (title, name) = match first_line.rsplit_once(' ') {
+    let (title, name) = match line.rsplit_once(' ') {
         None => {
-            let chars = first_line.chars().collect::<Vec<_>>();
+            let chars = line.chars().collect::<Vec<_>>();
             let colors = chars.iter().map(|_| ColorInfo::NO_COLOR).collect();
             return (
                 FileLine { context: LineContext::Raw, chars, colors },
@@ -70,17 +60,19 @@ pub fn parse_title(lines: &mut std::str::Lines) -> (FileLine, FileType) {
 }
 
 pub fn parse_file(
-    path: String, lib_data: &LibraryData, references: &HashMap<String, Reference>
-) -> io::Result<Vec<FileLine>> {
-    let contents = fs::read_to_string(path)?;
-    let mut lines = contents.lines();
-
-    let (title, file_type) = parse_title(&mut lines);
+    lines: Vec<Vec<char>>, lib_data: &LibraryData, references: &HashMap<String, Reference>
+) -> Vec<FileLine> {
+    let mut lines = lines.into_iter();
+    let first_line = match lines.next() {
+        Some(line) => line,
+        None => return vec![]
+    };
+    let (title, file_type) = parse_title(first_line);
     
     let mut sections = Vec::new();
     let mut temp = Vec::new();
     for line in lines {
-        if line.starts_with('#') {
+        if line.first() == Some(&'#') {
             sections.push(temp);
             temp = Vec::new();
         };
@@ -92,15 +84,14 @@ pub fn parse_file(
     let mut result_lines = vec![ title ];
     if let Some(empty_first_section) = sections.next() {
         for line in empty_first_section {
-            let chars = line.chars().collect::<Vec<_>>();
-            let colors = chars.iter().map(|_| ColorInfo::NO_COLOR).collect();
-            result_lines.push( FileLine { context: LineContext::Raw, chars, colors } );
+            let colors = line.iter().map(|_| ColorInfo::NO_COLOR).collect();
+            result_lines.push( FileLine { context: LineContext::Raw, chars: line, colors } );
         };
     };
     match file_type {
         FileType::SyntaxDefinitionFormula => {
             let Some(syntax_section) = sections.next() else {
-                return Ok(result_lines);
+                return result_lines;
             };
             let (
                 mut syntax_lines, new_syntax
@@ -114,7 +105,7 @@ pub fn parse_file(
         },
         FileType::SyntaxDefinitionObject => {
             let Some(syntax_section) = sections.next() else {
-                return Ok(result_lines);
+                return result_lines;
             };
             let (
                 mut syntax_lines, new_syntax
@@ -144,7 +135,7 @@ pub fn parse_file(
         },
         FileType::Theorem => {
             let Some(hypothesis_section) = sections.next() else {
-                return Ok(result_lines);
+                return result_lines;
             };
             let (
                 mut hypot_lines, hypot_names
@@ -165,20 +156,17 @@ pub fn parse_file(
         FileType::Unknown => {
             for lines in sections.by_ref() {
                 for line in lines {
-                    let chars = line.chars().collect::<Vec<_>>();
-                    let colors = chars.iter().map(|_| ColorInfo::NO_COLOR).collect();
-                    result_lines.push( FileLine { context: LineContext::Raw, chars, colors } );
+                    let colors = line.iter().map(|_| ColorInfo::NO_COLOR).collect();
+                    result_lines.push( FileLine { context: LineContext::Raw, chars: line, colors } );
                 };
             };
         }
     }
     for lines in sections {
         for line in lines {
-            let chars = line.chars().collect::<Vec<_>>();
-            let colors = chars.iter().map(|_| ColorInfo::fg_color(Color::Red)).collect();
-            result_lines.push( FileLine { context: LineContext::UnexpectedLine, chars, colors } );
+            let colors = line.iter().map(|_| ColorInfo::fg_color(Color::Red)).collect();
+            result_lines.push( FileLine { context: LineContext::UnexpectedLine, chars: line, colors } );
         };
     };
-
-    Ok(result_lines)
+    result_lines
 }

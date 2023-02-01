@@ -4,9 +4,6 @@ use termwiz::{
     Error
 };
 
-mod events;
-use events::poll_terminal_for_events;
-
 mod graphics;
 use graphics::display_menu;
 
@@ -15,11 +12,13 @@ mod parsing;
 mod library_data;
 use library_data::read_lib_data;
 
-mod event_handling;
-use event_handling::{
+mod events;
+use events::{
+    poll_terminal_for_events,
     EditorData, EditorState,
     handle_event_in_menu,
-    handle_event_in_file_edition
+    handle_event_in_file_edition,
+    handle_event_in_char_insertion
 };
 
 fn main() -> Result<(), Error> {
@@ -42,6 +41,7 @@ fn main() -> Result<(), Error> {
         match editor_data.state {
             EditorState::InMenu => handle_event_in_menu(event, &mut editor_data),
             EditorState::EditingFile => handle_event_in_file_edition(event, &mut editor_data),
+            EditorState::InsertSpecialChar => handle_event_in_char_insertion(event, &mut editor_data),
             EditorState::ShouldExit => break
         };
         match editor_data.state {

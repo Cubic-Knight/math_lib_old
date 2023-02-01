@@ -21,6 +21,7 @@ pub enum LineContext {
     UnexpectedLine
 }
 
+#[derive(Clone)]
 pub struct FileLine {
     pub context: LineContext,
     pub chars: Vec<char>,

@@ -18,7 +18,7 @@ use sections::{
 };
 
 mod formula;
-use formula::{
+pub use formula::{
     parse_new_syntax,
     parse_formula
 };

@@ -8,9 +8,16 @@ use termwiz::{
     Error
 };
 
+pub enum Direction {
+    Up,
+    Down,
+    Left,
+    Right
+}
+
 pub enum Event {
     KeyPressedChar(char, Modifiers),
-    KeyPressedArrow((isize, isize), Modifiers),
+    KeyPressedArrow(Direction, Modifiers),
     KeyPressedOther(KeyCode, Modifiers),
     MouseMoved(u16, u16, MouseButtons, Modifiers),
     WindowResize(usize, usize),
@@ -34,10 +41,10 @@ pub fn poll_terminal_for_events(terminal: &mut impl Terminal) -> Result<Option<E
             KeyCode::Char(c) => Some(Event::KeyPressedChar(c, modifiers)),
 
             // Arrow keys
-            KeyCode::UpArrow => Some(Event::KeyPressedArrow((-1, 0), modifiers)),
-            KeyCode::DownArrow => Some(Event::KeyPressedArrow((1, 0), modifiers)),
-            KeyCode::LeftArrow => Some(Event::KeyPressedArrow((0, -1), modifiers)),
-            KeyCode::RightArrow => Some(Event::KeyPressedArrow((0, 1), modifiers)),
+            KeyCode::UpArrow => Some(Event::KeyPressedArrow(Direction::Up, modifiers)),
+            KeyCode::DownArrow => Some(Event::KeyPressedArrow(Direction::Down, modifiers)),
+            KeyCode::LeftArrow => Some(Event::KeyPressedArrow(Direction::Left, modifiers)),
+            KeyCode::RightArrow => Some(Event::KeyPressedArrow(Direction::Right, modifiers)),
 
             // Numpad keys
             KeyCode::Numpad0 =>   Some(Event::KeyPressedChar('0', modifiers)),
